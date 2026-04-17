@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Infraestructura para Crypto Price Tracker - EC2 + S3
+
+# =====================================================================
+# CONFIGURACIÓN DE SECURITY GROUPS — Notas importantes:
+#
+# La aplicación requiere que los siguientes puertos estén abiertos
+# en el Security Group de la instancia EC2:
+#
+#   Puerto 22   → SSH para administración del servidor
+#   Puerto 5173 → Frontend (React/Vite), acceso desde cualquier IP
+#   Puerto 3000 → Backend API (Express)
+#
+# ⚠️  ADVERTENCIA DE SEGURIDAD:
+#   - No usar CidrIp: 0.0.0.0/0 en el puerto 22 en producción.
+#     Restringir SSH SIEMPRE a tu IP específica (ej: 187.x.x.x/32).
+#   - El puerto 3000 idealmente solo debería ser accesible desde
+#     el propio servidor (127.0.0.1) o desde el SG del frontend.
+#   - En producción, usar un Load Balancer + HTTPS en puerto 443
+#     en lugar de exponer puertos directamente.
+# =====================================================================
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key Pair para acceso SSH a EC2
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t2.micro, t2.small, t2.medium]
+    Description: Tipo de instancia EC2
+
+Resources:
+
+  # ─── S3 Bucket para logs y archivos estáticos ───────────────────
+  CryptoTrackerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "crypto-tracker-logs-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: EliminarLogsAntiguos
+            Status: Enabled
+            ExpirationInDays: 30
+      Tags:
+        - Key: Project
+          Value: CryptoTracker
+
+  # ─── Security Group ─────────────────────────────────────────────
+  CryptoTrackerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group para Crypto Price Tracker
+      SecurityGroupIngress:
+
+        # SSH — ⚠️ Cambiar 0.0.0.0/0 por tu IP real en producción
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+        # Frontend (Vite) — acceso público
+        - IpProtocol: tcp
+          FromPort: 5173
+          ToPort: 5173
+          CidrIp: 0.0.0.0/0
+
+        # Backend API — acceso público (restringir en producción)
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Project
+          Value: CryptoTracker
+
+  # ─── Instancia EC2 ──────────────────────────────────────────────
+  CryptoTrackerEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      # Amazon Linux 2 - us-east-1 (actualizar AMI según tu región)
+      ImageId: ami-0c02fb55956c7d316
+      SecurityGroupIds:
+        - !Ref CryptoTrackerSG
+      # UserData: instala Git y Docker automáticamente al crear la instancia
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y git
+          curl -fsSL https://get.docker.com | sh
+          systemctl start docker
+          systemctl enable docker
+          usermod -aG docker ec2-user
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      Tags:
+        - Key: Name
+          Value: CryptoTrackerServer
+        - Key: Project
+          Value: CryptoTracker
+
+Outputs:
+  EC2PublicIP:
+    Description: IP pública de la instancia EC2
+    Value: !GetAtt CryptoTrackerEC2.PublicIp
+
+  AppURL:
+    Description: URL de la aplicación
+    Value: !Sub "http://${CryptoTrackerEC2.PublicIp}:5173"
+
+  S3BucketName:
+    Description: Nombre del bucket S3 para logs
+    Value: !Ref CryptoTrackerBucket
