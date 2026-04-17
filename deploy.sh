@@ -5,8 +5,8 @@ echo "======================================================"
 echo " [DEPLOY] Crypto Price Tracker - Despliegue en EC2"
 echo "======================================================"
 
-REPO_URL="https://github.com/TU_USUARIO/crypto-tracker.git"
-APP_DIR="$HOME/crypto-tracker"
+REPO_URL="https://github.com/Gsmtz29/Crypto-trackerDO.git"
+APP_DIR="$HOME/Crypto-trackerDO"
 
 # 1. Clonar o actualizar
 if [ -d "$APP_DIR/.git" ]; then
