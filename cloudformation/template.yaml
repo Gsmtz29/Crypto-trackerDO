@@ -11,7 +11,7 @@ Description: Infraestructura para Crypto Price Tracker - EC2 + S3
 #   Puerto 5173 → Frontend (React/Vite), acceso desde cualquier IP
 #   Puerto 3000 → Backend API (Express)
 #
-# ⚠️  ADVERTENCIA DE SEGURIDAD:
+#   ADVERTENCIA DE SEGURIDAD:
 #   - No usar CidrIp: 0.0.0.0/0 en el puerto 22 en producción.
 #     Restringir SSH SIEMPRE a tu IP específica (ej: 187.x.x.x/32).
 #   - El puerto 3000 idealmente solo debería ser accesible desde
@@ -56,7 +56,7 @@ Resources:
       GroupDescription: Security Group para Crypto Price Tracker
       SecurityGroupIngress:
 
-        # SSH — ⚠️ Cambiar 0.0.0.0/0 por tu IP real en producción
+        # SSH —  Cambiar 0.0.0.0/0 por tu IP real en producción
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
